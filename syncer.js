@@ -5,7 +5,7 @@ const database = mongoClient.db("636b7a77cbff4c962e39e9f1");
 const idMap = database.collection("idMaps");
 
 // relation info in table cases
-const relationFields = ["satKerId", "locationId", "caseTypeId", "caseStageId"];
+const relationFields = ["satkersId", "locationId", "caseTypeId", "caseStageId"];
 
 const relationFieldWithForeignTable = {
   satKerId: "satkers",
