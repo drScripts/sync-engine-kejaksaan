@@ -1,18 +1,11 @@
 const { mongoClient } = require("./config")
 
 const database = mongoClient.db('replication');
-const monitoring = database.collection('monitoring');
+const monitoring = database.collection('monitorings');
 
-const create = async ({ created, deleted, updated, payload }) => {
-    monitoring.insertOne({
-        sycnAt: new Date(),
-        created,
-        deleted,
-        updated,
-        payload
-    })
+const create = async (metrics) => {
+    return monitoring.insertOne(metrics)
 }
-
 
 module.exports = {
     create
