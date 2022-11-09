@@ -47,7 +47,7 @@ const syncer = (app) => {
         if (relationFields.includes(field)) {
           await database
             .collection(relationFieldWithPivotTable[field])
-            .insertOne({ [field]: value, cases2Id: caseId });
+            .insertOne({ [field]: value, casesId: caseId });
           return {};
         }
 
@@ -64,7 +64,7 @@ const syncer = (app) => {
         if (relationFields.includes(field)) {
           await database
             .collection(relationFieldWithPivotTable[field])
-            .updateOne({ cases2Id: caseId }, { $set: { [field]: value } });
+            .updateOne({ casesId: caseId }, { $set: { [field]: value } });
           return {};
         }
 
