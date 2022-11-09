@@ -5,24 +5,24 @@ const mongoClient = new MongoClient(
 );
 
 const pgClient1 = new Client({
-  host: "satker-ri.deployment.microgen.id",
-  port: 31576,
+  host: "pg-satker-langkat.deployment.microgen.id",
+  port: 32294,
   database: "postgres",
   user: "root",
   password: "password",
 });
 
 const pgClient2 = new Client({
-  host: "satker-jakarta.deployment.microgen.id",
-  port: 30128,
+  host: "pg-jakarta-utara.deployment.microgen.id",
+  port: 31314,
   database: "postgres",
   user: "root",
   password: "password",
 });
 
 const pgClient3 = new Client({
-  host: "satker-jogja.deployment.microgen.id",
-  port: 30222,
+  host: "pg-surabaya.deployment.microgen.id",
+  port: 30622,
   database: "postgres",
   user: "root",
   password: "password",
@@ -30,15 +30,15 @@ const pgClient3 = new Client({
 
 const pgClients = [
   {
-    app: "satker republik indonesia",
+    app: "satker negeri langkat",
     pgClient: pgClient1,
   },
   {
-    app: "satker jakarta",
+    app: "satker jakarta utara",
     pgClient: pgClient2,
   },
   {
-    app: "satker jogja",
+    app: "satker surabaya",
     pgClient: pgClient3,
   },
 ];

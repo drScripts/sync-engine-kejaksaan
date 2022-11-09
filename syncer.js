@@ -18,7 +18,7 @@ const relationFieldWithPivotTable = {
   satKerId: "cases_satkers",
   locationId: "cases_location",
   caseTypeId: "cases_caseType",
-  caseStageId: "cases_stage",
+  caseStageId: "cases_caseStage",
 };
 
 const syncer = (app) => {
