@@ -5,17 +5,17 @@ const database = mongoClient.db("636b7a77cbff4c962e39e9f1");
 const idMap = database.collection("idMaps");
 
 // relation info in table cases
-const relationFields = ["satkersId", "locationId", "caseTypeId", "caseStageId"];
+const relationFields = ["satKerId", "locationId", "caseTypeId", "caseStageId"];
 
 const relationFieldWithForeignTable = {
-  satkersId: "satkers",
+  satKerId: "satkers",
   locationId: "locations",
   caseTypeId: "caseTypes",
   caseStageId: "caseStages",
 };
 
 const relationFieldWithPivotTable = {
-  satkersId: "cases_satkers",
+  satKerId: "cases_satkers",
   locationId: "cases_location",
   caseTypeId: "cases_caseType",
   caseStageId: "cases_caseStage",
