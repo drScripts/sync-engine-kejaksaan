@@ -12,13 +12,13 @@ cron.schedule("*/10 * * * * *", async function () {
                         const insertedData = JSON.parse(row.new_data)
                         insert(row.table_name, insertedData).then(() => {
                             updateFlagLog(row.id)
-                        })
+                        }).catch(console.log)
                         break;
                     case "D":
                         const deletedData = JSON.parse(row.original_data)
                         _delete(row.table_name, deletedData.id).then(() => {
                             updateFlagLog(row.id)
-                        })
+                        }).catch(console.log)
                         break;
                     case "U":
                         const updatedData = JSON.parse(row.new_data)

@@ -4,6 +4,7 @@ const { ObjectId } = require("mongodb")
 const database = mongoClient.db('replication');
 const idMap = database.collection("idMaps")
 
+// relation info in table cases
 const relationFields = [
     "satKerId",
     "locationId",
@@ -11,7 +12,7 @@ const relationFields = [
     "caseStageId",
 ]
 
-const relationFieldWithForeignKey = {
+const relationFieldWithForeignTable = {
     "satKerId": "satkers",
     "locationId": "locations",
     "caseTypeId": "caseTypes",
@@ -21,7 +22,7 @@ const relationFieldWithForeignKey = {
 const handleRelationField = async (data) => {
     const parsedData = await Promise.all(Object.entries(data).map(async([field,value]) => {
         if(relationFields.includes(field)) {
-            return { [field]: await getTargetId(relationFieldWithForeignKey[field], value) }
+            return { [field]: await getTargetId(relationFieldWithForeignTable[field], value) }
         } else {
             return { [field]: value }
         }
@@ -30,15 +31,47 @@ const handleRelationField = async (data) => {
     return Object.assign({}, ...parsedData)
 }
 
+const relationFieldWithPivotTable = {
+    "satKerId": "cases2_satker",
+    "locationId": "cases2_location",
+    "caseTypeId": "cases2_caseType",
+    "caseStageId": "cases2_stage",
+}
+
+const handleInsertToPivot = async (data, caseId) => {
+    const parsedData = await Promise.all(Object.entries(data).map(async([field,value]) => {
+        if(relationFields.includes(field)) {
+            await database.collection(relationFieldWithPivotTable[field]).insertOne({ [field]: value, cases2Id: caseId })
+            return {}
+        }
+
+        return { [field]: value }
+    }))
+
+    return Object.assign({}, ...parsedData)
+}
+
+const handleUpdateToPivot = async (data, caseId) => {
+    const parsedData = await Promise.all(Object.entries(data).map(async([field,value]) => {
+        if(relationFields.includes(field)) {
+            await database.collection(relationFieldWithPivotTable[field]).updateOne({cases2Id: caseId}, { $set: { [field]: value }})
+            return {}
+        }
+
+        return { [field]: value }
+    }))
+
+    return Object.assign({}, ...parsedData)
+}
+
 const getTargetId = async (tableName, sourceId) => {
-    const res = await idMap.findOne({ sourceId, tableName })
+    let res = await idMap.findOne({ sourceId, tableName })
+
+    // handle if source id not registerd
     if (!res) {
-        console.log("failed translate id source to target", {
-            tableName,
-            sourceId,
-            res
-        })
+        return (await idMap.insertOne({ sourceId, tableName, targetId: new ObjectId() })).insertedId
     }
+
     return res.targetId
 }
 
@@ -56,20 +89,31 @@ const insert = async (tableName, data) => {
         newData._id = new ObjectId(newData.id)
         delete newData.id
     }
+
     const res = await database.collection(tableName).insertOne(newData)
     await createIdMap(tableName, data.id, res.insertedId)
+   
+    if(tableName === "cases") {
+        await handleInsertToPivot(newData,res.insertedId)
+    }
 }
 
 const update = async (tableName, id, data) => {
     let newData = { ...data }
     if(tableName === "cases") {
-        const data = await handleRelationField(data)
+        newData = await handleRelationField(data)
     }
+
     delete newData.id
     const targetId = await getTargetId(tableName,id)
     await database.collection(tableName).updateOne({
         _id: targetId,
     }, { $set: newData })
+
+
+    if (tableName === "cases") { 
+        await handleUpdateToPivot(newData, targetId)
+    }
 }
 
 const _delete = async (tableName, id) => {
