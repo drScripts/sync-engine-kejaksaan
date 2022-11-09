@@ -8,14 +8,14 @@ const idMap = database.collection("idMaps");
 const relationFields = ["satkersId", "locationId", "caseTypeId", "caseStageId"];
 
 const relationFieldWithForeignTable = {
-  satKerId: "satkers",
+  satkersId: "satkers",
   locationId: "locations",
   caseTypeId: "caseTypes",
   caseStageId: "caseStages",
 };
 
 const relationFieldWithPivotTable = {
-  satKerId: "cases_satkers",
+  satkersId: "cases_satkers",
   locationId: "cases_location",
   caseTypeId: "cases_caseType",
   caseStageId: "cases_caseStage",
