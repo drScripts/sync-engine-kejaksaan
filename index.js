@@ -16,6 +16,7 @@ const sync = async (app, pgClient) => {
             errorUpdate: 0,
             successDelete: 0,
             errorDelete: 0,
+            satker: app,
             dateTime: new Date()
         }
 
