@@ -19,18 +19,6 @@ const relationFieldWithForeignTable = {
     "caseStageId": "caseStages",
 }
 
-const handleRelationField = async (data) => {
-    const parsedData = await Promise.all(Object.entries(data).map(async([field,value]) => {
-        if(relationFields.includes(field)) {
-            return { [field]: await getTargetId(relationFieldWithForeignTable[field], value) }
-        } else {
-            return { [field]: value }
-        }
-    }))
-
-    return Object.assign({}, ...parsedData)
-}
-
 const relationFieldWithPivotTable = {
     "satKerId": "cases2_satker",
     "locationId": "cases2_location",
@@ -38,93 +26,110 @@ const relationFieldWithPivotTable = {
     "caseStageId": "cases2_stage",
 }
 
-const handleInsertToPivot = async (data, caseId) => {
-    const parsedData = await Promise.all(Object.entries(data).map(async([field,value]) => {
-        if(relationFields.includes(field)) {
-            await database.collection(relationFieldWithPivotTable[field]).insertOne({ [field]: value, cases2Id: caseId })
-            return {}
-        }
+const syncer = (app) => {
 
-        return { [field]: value }
-    }))
+    const handleRelationField = async (data) => {
+        const parsedData = await Promise.all(Object.entries(data).map(async ([field, value]) => {
+            if (relationFields.includes(field)) {
+                return { [field]: await getTargetId(relationFieldWithForeignTable[field], value) }
+            } else {
+                return { [field]: value }
+            }
+        }))
 
-    return Object.assign({}, ...parsedData)
-}
-
-const handleUpdateToPivot = async (data, caseId) => {
-    const parsedData = await Promise.all(Object.entries(data).map(async([field,value]) => {
-        if(relationFields.includes(field)) {
-            await database.collection(relationFieldWithPivotTable[field]).updateOne({cases2Id: caseId}, { $set: { [field]: value }})
-            return {}
-        }
-
-        return { [field]: value }
-    }))
-
-    return Object.assign({}, ...parsedData)
-}
-
-const getTargetId = async (tableName, sourceId) => {
-    let res = await idMap.findOne({ sourceId, tableName })
-
-    // handle if source id not registerd
-    if (!res) {
-        return (await idMap.insertOne({ sourceId, tableName, targetId: new ObjectId() })).insertedId
+        return Object.assign({}, ...parsedData)
     }
 
-    return res.targetId
-}
+    const handleInsertToPivot = async (data, caseId) => {
+        const parsedData = await Promise.all(Object.entries(data).map(async ([field, value]) => {
+            if (relationFields.includes(field)) {
+                await database.collection(relationFieldWithPivotTable[field]).insertOne({ [field]: value, cases2Id: caseId })
+                return {}
+            }
 
-const createIdMap = (tableName, sourceId, targetId) => {
-    return idMap.insertOne({ sourceId, targetId, tableName })
-}
+            return { [field]: value }
+        }))
 
-const insert = async (tableName, data) => {
-    let newData = { ...data }
-    if(tableName === "cases") {
-        newData = await handleRelationField(data)
+        return Object.assign({}, ...parsedData)
     }
 
-    if (newData.id) {
-        newData._id = new ObjectId(newData.id)
+    const handleUpdateToPivot = async (data, caseId) => {
+        const parsedData = await Promise.all(Object.entries(data).map(async ([field, value]) => {
+            if (relationFields.includes(field)) {
+                await database.collection(relationFieldWithPivotTable[field]).updateOne({ cases2Id: caseId }, { $set: { [field]: value } })
+                return {}
+            }
+
+            return { [field]: value }
+        }))
+
+        return Object.assign({}, ...parsedData)
+    }
+
+    const getTargetId = async (tableName, sourceId) => {
+        let res = await idMap.findOne({ sourceId, tableName, app })
+
+        // handle if source id not registerd
+        if (!res) {
+            return (await idMap.insertOne({ sourceId, tableName, targetId: new ObjectId(), app })).insertedId
+        }
+
+        return res.targetId
+    }
+
+    const createIdMap = (tableName, sourceId, targetId) => {
+        return idMap.insertOne({ sourceId, targetId, tableName, app })
+    }
+
+    const insert = async (tableName, data) => {
+        let newData = { ...data }
+        if (tableName === "cases") {
+            newData = await handleRelationField(data)
+        }
+
+        if (newData.id) {
+            newData._id = new ObjectId(newData.id)
+            delete newData.id
+        }
+
+        const res = await database.collection(tableName).insertOne(newData)
+        await createIdMap(tableName, data.id, res.insertedId)
+
+        if (tableName === "cases") {
+            await handleInsertToPivot(newData, res.insertedId)
+        }
+    }
+
+    const update = async (tableName, id, data) => {
+        let newData = { ...data }
+        if (tableName === "cases") {
+            newData = await handleRelationField(data)
+        }
+
         delete newData.id
+        const targetId = await getTargetId(tableName, id)
+        await database.collection(tableName).updateOne({
+            _id: targetId,
+        }, { $set: newData })
+
+
+        if (tableName === "cases") {
+            await handleUpdateToPivot(newData, targetId)
+        }
     }
 
-    const res = await database.collection(tableName).insertOne(newData)
-    await createIdMap(tableName, data.id, res.insertedId)
-   
-    if(tableName === "cases") {
-        await handleInsertToPivot(newData,res.insertedId)
-    }
-}
-
-const update = async (tableName, id, data) => {
-    let newData = { ...data }
-    if(tableName === "cases") {
-        newData = await handleRelationField(data)
+    const _delete = async (tableName, id) => {
+        const targetId = await getTargetId(tableName, id)
+        return database.collection(tableName).deleteOne({
+            _id: targetId,
+        })
     }
 
-    delete newData.id
-    const targetId = await getTargetId(tableName,id)
-    await database.collection(tableName).updateOne({
-        _id: targetId,
-    }, { $set: newData })
-
-
-    if (tableName === "cases") { 
-        await handleUpdateToPivot(newData, targetId)
+    return {
+        insert,
+        update,
+        delete: _delete
     }
 }
 
-const _delete = async (tableName, id) => {
-    const targetId = await getTargetId(tableName,id)
-    return database.collection(tableName).deleteOne({
-        _id: targetId,
-    })
-}
-
-module.exports = {
-    insert,
-    update,
-    _delete
-}
+module.exports = syncer

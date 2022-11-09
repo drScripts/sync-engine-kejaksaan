@@ -1,11 +1,14 @@
 const cron = require('node-cron');
-const { getAuditLogs, updateFlagLog } = require('./pg')
-const { insert, update, _delete } = require('./syncer')
-const monitoring = require("./monitoring")
+const pgSource = require('./pg')
+const syncerBuilder = require('./syncer')
+const monitoring = require("./monitoring");
+const { pgClients } = require('./config');
 
-cron.schedule("*/10 * * * * *", async function () {
+const sync = async (app, pgClient) => {
     try {
-        const rows = await getAuditLogs()
+        const p = pgSource(pgClient)
+        const syncer = syncerBuilder(app)
+        const rows = await p.getAuditLogs()
         const metrics = {
             successCreate: 0,
             errorCreate: 0,
@@ -25,8 +28,8 @@ cron.schedule("*/10 * * * * *", async function () {
                     case "I":
                         try {
                             const insertedData = JSON.parse(row.new_data)
-                            await insert(row.table_name, insertedData)
-                            await updateFlagLog(row.id)
+                            await syncer.insert(row.table_name, insertedData)
+                            await p.updateFlagLog(row.id)
                             metrics.successCreate++
 
                         } catch (e) {
@@ -36,8 +39,8 @@ cron.schedule("*/10 * * * * *", async function () {
                     case "D":
                         try {
                             const deletedData = JSON.parse(row.original_data)
-                            await _delete(row.table_name, deletedData.id)
-                            await updateFlagLog(row.id)
+                            await syncer.delete(row.table_name, deletedData.id)
+                            await p.updateFlagLog(row.id)
                             metrics.successUpdate++
                         } catch (e) {
                             metrics.errorUpdate++
@@ -46,8 +49,8 @@ cron.schedule("*/10 * * * * *", async function () {
                     case "U":
                         try {
                             const updatedData = JSON.parse(row.new_data)
-                            await update(row.table_name, updatedData.id, updatedData)
-                            await updateFlagLog(row.id)
+                            await syncer.update(row.table_name, updatedData.id, updatedData)
+                            await p.updateFlagLog(row.id)
                             metrics.successDelete++
                         } catch (e) {
                             metrics.errorDelete++
@@ -66,6 +69,12 @@ cron.schedule("*/10 * * * * *", async function () {
     } catch (error) {
         console.log("error", error)
     }
+}
+
+cron.schedule("*/10 * * * * *",() => {
+    pgClients.map(({app, pgClient}) => {
+        sync(app, pgClient)
+    })
 });
 
 
